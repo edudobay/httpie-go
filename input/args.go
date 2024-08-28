@@ -217,22 +217,37 @@ func parseItem(s string, stdin io.Reader, state *state, in *Input) error {
 }
 
 func splitItem(s string) (itemType, string, string) {
+	var buf string
+	bufEnd := -1
+	escapedIndex := -1
 	for i, c := range s {
+		if escapedIndex == i {
+			buf += string(c)
+			bufEnd = i
+			continue
+		}
 		switch c {
+		case '\\':
+			escapedIndex = i + 1
+			buf += s[bufEnd+1 : i]
+			bufEnd = i
 		case ':':
+			buf += s[bufEnd+1 : i]
 			if i+1 < len(s) && s[i+1] == '=' {
-				return rawJSONFieldItem, s[:i], s[i+2:]
+				return rawJSONFieldItem, buf, s[i+2:]
 			} else {
-				return httpHeaderItem, s[:i], s[i+1:]
+				return httpHeaderItem, buf, s[i+1:]
 			}
 		case '=':
+			buf += s[bufEnd+1 : i]
 			if i+1 < len(s) && s[i+1] == '=' {
-				return urlParameterItem, s[:i], s[i+2:]
+				return urlParameterItem, buf, s[i+2:]
 			} else {
-				return dataFieldItem, s[:i], s[i+1:]
+				return dataFieldItem, buf, s[i+1:]
 			}
 		case '@':
-			return formFileFieldItem, s[:i], s[i+1:]
+			buf += s[bufEnd+1 : i]
+			return formFileFieldItem, buf, s[i+1:]
 		}
 	}
 	return unknownItem, "", ""
